@@ -1,0 +1,6 @@
+TA0040 Impact	T1490 Inhibit System Recovery	Runs:
+		wmic shadowcopy delete
+		wbadmin delete catalog -quiet
+		vssadmin delete shadows /all /quiet
+		bcdedit /set {default} recoveryenabled no
+		bcdedit /set {default} bootstatuspolicy ignoreallfailures

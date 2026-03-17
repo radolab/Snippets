@@ -1,0 +1,19 @@
+$PartnerTier2SupportAssignments = $null
+$URI = "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignmentSchedules?`$filter=roleDefinitionId eq 'e00e864a-17c5–4a4b-9c06-f5b95a8d5bd8'&`$expand=principal"
+    do {
+        $Results = Invoke-RestMethod `
+            -Headers @{
+                Authorization = "Bearer $($MSGraphToken)"
+            } `
+            -URI $URI `
+            -UseBasicParsing `
+            -Method "GET" `
+            -ContentType "application/json"
+        if ($Results.value) {
+            $PartnerTier2SupportAssignments += $Results.value
+        } else {
+            $PartnerTier2SupportAssignments += $Results
+        }
+        $uri = $Results.'@odata.nextlink'
+    } until (!($uri))
+$PartnerTier2SupportAssignments

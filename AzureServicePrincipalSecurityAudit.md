@@ -22,22 +22,13 @@
 ### Full SP Inventory with Auth Methods
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,appId,passwordCredentials,keyCredentials,federatedIdentityCredentials" \
-  -o json
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,appId,passwordCredentials,keyCredentials,federatedIdentityCredentials' -o json
 ```
 
 ### Count by Auth Type (quick summary)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,passwordCredentials,keyCredentials" \
-  -o json | jq '{
-    total: (.value | length),
-    with_secrets: [.value[] | select(.passwordCredentials | length > 0)] | length,
-    with_certs: [.value[] | select(.keyCredentials | length > 0)] | length,
-    no_credentials: [.value[] | select((.passwordCredentials | length == 0) and (.keyCredentials | length == 0))] | length
-  }'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,passwordCredentials,keyCredentials' -o json | jq '{total: (.value | length), with_secrets: [.value[] | select(.passwordCredentials | length > 0)] | length, with_certs: [.value[] | select(.keyCredentials | length > 0)] | length, no_credentials: [.value[] | select((.passwordCredentials | length == 0) and (.keyCredentials | length == 0))] | length}'
 ```
 
 -----
@@ -47,27 +38,19 @@ az rest --method GET \
 ### SPs with Client Secrets
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,appId,passwordCredentials" \
-  -o json | jq '.value[] | select(.passwordCredentials | length > 0) |
-  {name: .displayName, appId: .appId, secrets: [.passwordCredentials[] | {hint: .hint, created: .startDateTime, expires: .endDateTime}]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,appId,passwordCredentials' -o json | jq '.value[] | select(.passwordCredentials | length > 0) | {name: .displayName, appId: .appId, secrets: [.passwordCredentials[] | {hint: .hint, created: .startDateTime, expires: .endDateTime}]}'
 ```
 
 ### SPs with Certificate Credentials
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,appId,keyCredentials" \
-  -o json | jq '.value[] | select(.keyCredentials | length > 0) |
-  {name: .displayName, appId: .appId, certs: [.keyCredentials[] | {type: .type, usage: .usage, expires: .endDateTime}]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,appId,keyCredentials' -o json | jq '.value[] | select(.keyCredentials | length > 0) | {name: .displayName, appId: .appId, certs: [.keyCredentials[] | {type: .type, usage: .usage, expires: .endDateTime}]}'
 ```
 
 ### SPs with Federated Credentials
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications" \
-  -o json | jq -r '.value[].id' | while read id; do
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications' -o json | jq -r '.value[].id' | while read id; do
   fic=$(az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/$id/federatedIdentityCredentials" 2>/dev/null)
   count=$(echo "$fic" | jq '.value | length')
   if [ "$count" -gt "0" ]; then
@@ -84,49 +67,31 @@ done
 ### Expired Secrets (should be removed)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,appId,passwordCredentials" \
-  -o json | jq --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '.value[] | select(.passwordCredentials[]? | .endDateTime < $now) |
-  {name: .displayName, expired: [.passwordCredentials[] | select(.endDateTime < $now) | .endDateTime]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,appId,passwordCredentials' -o json | jq --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.value[] | select(.passwordCredentials[]? | .endDateTime < $now) | {name: .displayName, expired: [.passwordCredentials[] | select(.endDateTime < $now) | .endDateTime]}'
 ```
 
 ### Secrets with Long Expiry (>1 year = risk)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,passwordCredentials" \
-  -o json | jq --arg cutoff "$(date -u -d '+365 days' +%Y-%m-%dT%H:%M:%SZ)" \
-  '.value[] | select(.passwordCredentials[]? | .endDateTime > $cutoff) |
-  {name: .displayName, longLived: [.passwordCredentials[] | select(.endDateTime > $cutoff) | .endDateTime]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,passwordCredentials' -o json | jq --arg cutoff "$(date -u -d '+365 days' +%Y-%m-%dT%H:%M:%SZ)" '.value[] | select(.passwordCredentials[]? | .endDateTime > $cutoff) | {name: .displayName, longLived: [.passwordCredentials[] | select(.endDateTime > $cutoff) | .endDateTime]}'
 ```
 
 ### Multiple Secrets on One App (credential sprawl)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,passwordCredentials" \
-  -o json | jq '.value[] | select(.passwordCredentials | length > 1) |
-  {name: .displayName, secretCount: (.passwordCredentials | length)}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,passwordCredentials' -o json | jq '.value[] | select(.passwordCredentials | length > 1) | {name: .displayName, secretCount: (.passwordCredentials | length)}'
 ```
 
 ### SPs with Both Secrets AND Certificates (inconsistent auth)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,passwordCredentials,keyCredentials" \
-  -o json | jq '.value[] | select((.passwordCredentials | length > 0) and (.keyCredentials | length > 0)) |
-  {name: .displayName, secrets: (.passwordCredentials | length), certs: (.keyCredentials | length)}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,passwordCredentials,keyCredentials' -o json | jq '.value[] | select((.passwordCredentials | length > 0) and (.keyCredentials | length > 0)) | {name: .displayName, secrets: (.passwordCredentials | length), certs: (.keyCredentials | length)}'
 ```
 
 ### Expired Certificates
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$select=displayName,appId,keyCredentials" \
-  -o json | jq --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '.value[] | select(.keyCredentials[]? | .endDateTime < $now) |
-  {name: .displayName, expiredCerts: [.keyCredentials[] | select(.endDateTime < $now) | .endDateTime]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$select=displayName,appId,keyCredentials' -o json | jq --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.value[] | select(.keyCredentials[]? | .endDateTime < $now) | {name: .displayName, expiredCerts: [.keyCredentials[] | select(.endDateTime < $now) | .endDateTime]}'
 ```
 
 -----
@@ -136,62 +101,43 @@ az rest --method GET \
 ### App Role Assignments (application-level permissions)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/servicePrincipals?\$expand=appRoleAssignments" \
-  -o json | jq '.value[] | select(.appRoleAssignments | length > 0) |
-  {name: .displayName, appId: .appId, permissions: [.appRoleAssignments[] | .appRoleId]}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/servicePrincipals?$expand=appRoleAssignments' -o json | jq '.value[] | select(.appRoleAssignments | length > 0) | {name: .displayName, appId: .appId, permissions: [.appRoleAssignments[] | .appRoleId]}'
 ```
 
 ### Resolve App Role IDs to Readable Names
 
 ```bash
-GRAPH_SP_ID=$(az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/servicePrincipals?\$filter=appId eq '00000003-0000-0000-c000-000000000000'" \
-  --query "value[0].id" -o tsv)
+GRAPH_SP_ID=$(az rest --method GET --url 'https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '\''00000003-0000-0000-c000-000000000000'\''' --query "value[0].id" -o tsv)
 
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/servicePrincipals/$GRAPH_SP_ID/appRoles" \
-  --query "value[].{Permission:value, Id:id, Description:description}" -o table
+az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$GRAPH_SP_ID/appRoles" --query "value[].{Permission:value, Id:id, Description:description}" -o table
 ```
 
 ### Find SPs with Dangerous Graph Permissions
 
 ```bash
-# Get Graph SP role mappings, then cross-reference
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/servicePrincipals/$GRAPH_SP_ID/appRoles" \
-  -o json > /tmp/graph-roles.json
+GRAPH_SP_ID=$(az rest --method GET --url 'https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '\''00000003-0000-0000-c000-000000000000'\''' --query "value[0].id" -o tsv)
 
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/servicePrincipals?\$expand=appRoleAssignments" \
-  -o json | jq --slurpfile roles /tmp/graph-roles.json '
-  .value[] | select(.appRoleAssignments | length > 0) |
-  {name: .displayName, dangerous: [.appRoleAssignments[] |
-    . as $a | $roles[0].value[] | select(.id == $a.appRoleId) |
-    select(.value | test("ReadWrite|FullControl|Directory.Read")) | .value]
-  } | select(.dangerous | length > 0)'
+az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$GRAPH_SP_ID/appRoles" -o json > /tmp/graph-roles.json
+
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/servicePrincipals?$expand=appRoleAssignments' -o json | jq --slurpfile roles /tmp/graph-roles.json '.value[] | select(.appRoleAssignments | length > 0) | {name: .displayName, dangerous: [.appRoleAssignments[] | . as $a | $roles[0].value[] | select(.id == $a.appRoleId) | select(.value | test("ReadWrite|FullControl|Directory.Read")) | .value]} | select(.dangerous | length > 0)'
 ```
 
 ### OAuth2 Delegated Permissions Granted Tenant-Wide
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/oauth2PermissionGrants?\$filter=consentType eq 'AllPrincipals'" \
-  --query "value[].{ClientId:clientId, Scope:scope}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=consentType eq '\''AllPrincipals'\''' --query "value[].{ClientId:clientId, Scope:scope}" -o table
 ```
 
 ### Azure RBAC Roles Assigned to Service Principals
 
 ```bash
-az role assignment list --all \
-  --query "[?principalType=='ServicePrincipal'].{SP:principalName, Role:roleDefinitionName, Scope:scope}" -o table
+az role assignment list --all --query "[?principalType=='ServicePrincipal'].{SP:principalName, Role:roleDefinitionName, Scope:scope}" -o table
 ```
 
 ### SPs with Owner or Contributor at Subscription Level
 
 ```bash
-az role assignment list --all \
-  --query "[?principalType=='ServicePrincipal' && (roleDefinitionName=='Owner' || roleDefinitionName=='Contributor') && contains(scope, '/subscriptions/') && !contains(scope, '/resourceGroups/')].{SP:principalName, Role:roleDefinitionName, Scope:scope}" -o table
+az role assignment list --all --query "[?principalType=='ServicePrincipal' && (roleDefinitionName=='Owner' || roleDefinitionName=='Contributor') && contains(scope, '/subscriptions/') && !contains(scope, '/resourceGroups/')].{SP:principalName, Role:roleDefinitionName, Scope:scope}" -o table
 ```
 
 -----
@@ -201,9 +147,7 @@ az role assignment list --all \
 ### Apps with No Owners (orphaned)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications" \
-  -o json | jq -r '.value[] | "\(.id) \(.displayName)"' | while read id name; do
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications' -o json | jq -r '.value[] | "\(.id) \(.displayName)"' | while read id name; do
   count=$(az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/$id/owners" --query "value | length(@)" 2>/dev/null)
   if [ "$count" = "0" ]; then
     echo "Ownerless: $name ($id)"
@@ -214,28 +158,21 @@ done
 ### Apps Owned by Guest Users
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications" \
-  -o json | jq -r '.value[].id' | while read id; do
-  az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/$id/owners" \
-    --query "value[?userType=='Guest'].{Owner:displayName, App:'$id'}" -o tsv 2>/dev/null
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications' -o json | jq -r '.value[].id' | while read id; do
+  az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/$id/owners" --query "value[?userType=='Guest'].{Owner:displayName, App:'$id'}" -o tsv 2>/dev/null
 done
 ```
 
-### SPs Created Recently (last 30 days — potential unauthorized creation)
+### SPs Created Recently (last 30 days)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$filter=createdDateTime ge $(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)&\$select=displayName,appId,createdDateTime" \
-  --query "value[].{Name:displayName, AppId:appId, Created:createdDateTime}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$filter=createdDateTime ge '"$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"'&$select=displayName,appId,createdDateTime' --query "value[].{Name:displayName, AppId:appId, Created:createdDateTime}" -o table
 ```
 
 ### Who Can Create App Registrations
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/policies/authorizationPolicy" \
-  --query "{UsersCanRegisterApps:defaultUserRolePermissions.allowedToCreateApps}" -o json
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/policies/authorizationPolicy' --query "{UsersCanRegisterApps:defaultUserRolePermissions.allowedToCreateApps}" -o json
 ```
 
 -----
@@ -245,53 +182,41 @@ az rest --method GET \
 ### Apps with Admin-Consented Permissions
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/oauth2PermissionGrants?\$filter=consentType eq 'AllPrincipals'" \
-  -o json | jq '.value[] | {clientId: .clientId, scope: .scope, consentType: .consentType}'
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/oauth2PermissionGrants?$filter=consentType eq '\''AllPrincipals'\''' -o json | jq '.value[] | {clientId: .clientId, scope: .scope, consentType: .consentType}'
 ```
 
 ### Recent Consent Grants in Audit Logs (potential consent phishing)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?\$filter=activityDisplayName eq 'Consent to application'&\$top=50" \
-  --query "value[].{Actor:initiatedBy.user.userPrincipalName, App:targetResources[0].displayName, Date:activityDateTime}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?$filter=activityDisplayName eq '\''Consent to application'\''&$top=50' --query "value[].{Actor:initiatedBy.user.userPrincipalName, App:targetResources[0].displayName, Date:activityDateTime}" -o table
 ```
 
 ### Apps Exposed to External Tenants (multi-tenant apps)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/applications?\$filter=signInAudience eq 'AzureADMultipleOrgs' or signInAudience eq 'AzureADandPersonalMicrosoftAccount'" \
-  --query "value[].{Name:displayName, Audience:signInAudience, AppId:appId}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/applications?$filter=signInAudience eq '\''AzureADMultipleOrgs'\'' or signInAudience eq '\''AzureADandPersonalMicrosoftAccount'\''' --query "value[].{Name:displayName, Audience:signInAudience, AppId:appId}" -o table
 ```
 
 -----
 
 ## 8. Audit Log — SP Activity
 
-### SP Sign-In Activity (last 7 days)
+### SP Sign-In Activity
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/auditLogs/signIns?\$filter=signInEventTypes/any(t: t eq 'servicePrincipal')&\$top=50" \
-  --query "value[].{App:appDisplayName, IP:ipAddress, Status:status.errorCode, Date:createdDateTime}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/auditLogs/signIns?$filter=signInEventTypes/any(t: t eq '\''servicePrincipal'\'')&$top=50' --query "value[].{App:appDisplayName, IP:ipAddress, Status:status.errorCode, Date:createdDateTime}" -o table
 ```
 
 ### Risky Service Principals (Identity Protection)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/identityProtection/riskyServicePrincipals" \
-  --query "value[].{Name:displayName, RiskLevel:riskLevel, RiskState:riskState}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/identityProtection/riskyServicePrincipals' --query "value[].{Name:displayName, RiskLevel:riskLevel, RiskState:riskState}" -o table
 ```
 
 ### Credential Changes in Audit Logs (secret/cert additions)
 
 ```bash
-az rest --method GET \
-  --url "https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?\$filter=activityDisplayName eq 'Update application – Certificates and secrets management'&\$top=50" \
-  --query "value[].{Actor:initiatedBy.user.userPrincipalName, App:targetResources[0].displayName, Date:activityDateTime}" -o table
+az rest --method GET --url 'https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?$filter=activityDisplayName eq '\''Update application – Certificates and secrets management'\''&$top=50' --query "value[].{Actor:initiatedBy.user.userPrincipalName, App:targetResources[0].displayName, Date:activityDateTime}" -o table
 ```
 
 -----

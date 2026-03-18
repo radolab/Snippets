@@ -1,0 +1,7 @@
+PS C:\Users\windows_user> ConvertTo-SecureString $AppPassword.value -AsPlainText -Force
+ConvertTo-SecureString : Cannot bind argument to parameter 'String' because it is null.
+At line:1 char:24
++ ConvertTo-SecureString $AppPassword.value -AsPlainText -Force
++                        ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [ConvertTo-SecureString], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.ConvertToSecureStringCommand

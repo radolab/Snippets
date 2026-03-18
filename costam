@@ -1,0 +1,9 @@
+PS C:\Users\windows_user> $psCred = New-ObjectSystem.Management.Automation.PSCredential($AzureApplicationID,$AzurePassword)
+New-ObjectSystem.Management.Automation.PSCredential : The term 'New-ObjectSystem.Management.Automation.PSCredential' is not recognized as the name
+of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is
+correct and try again.
+At line:1 char:11
++ $psCred = New-ObjectSystem.Management.Automation.PSCredential($AzureA ...
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (New-ObjectSyste...on.PSCredential:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
